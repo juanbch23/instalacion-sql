@@ -356,6 +356,7 @@ SELECT 1 AS v;
             if ($SinProbarJob) { Info "Para ejecutarlo: SSMS > SQL Server Agent > Jobs > $NombreJob > Iniciar trabajo en el paso."; return }
             Info 'Ejecutando el Job una vez para comprobar que todo funciona (1-3 minutos)...'
             $jn = $NombreJob.Replace("'", "''")
+            $inicioJob = (Get-Date).AddSeconds(-5).ToString('yyyyMMdd HH:mm:ss')
             [void](Consulta $cnE "EXEC msdb.dbo.sp_start_job @job_name = N'$jn'; SELECT 1 AS v")
             $limite = (Get-Date).AddMinutes(15); $fin = $false
             do {
@@ -365,8 +366,8 @@ SELECT 1 AS v;
             } until ($fin -or (Get-Date) -gt $limite)
             $h = Consulta $cnE "SELECT TOP 1 h.run_status AS st FROM msdb.dbo.sysjobhistory h JOIN msdb.dbo.sysjobs j ON j.job_id = h.job_id WHERE j.name = N'$jn' AND h.step_id = 0 ORDER BY h.instance_id DESC"
             if ($h.Rows.Count -and [int]$h.Rows[0].st -eq 1) {
-                $r = Consulta $cn "SELECT (SELECT COUNT(*) FROM DWH_AW.Sales.FactSales) AS fact, (SELECT COUNT(*) FROM DWH_AW.Sales.ErrorFactSales) AS err, (SELECT COUNT(*) FROM DWH_AW.GENERICO.DimFecha) AS fecha, (SELECT COUNT(*) FROM DWH_AW.dbo.DIM_AUDIT WHERE SuccessfulProcessingInd <> 'Y') AS audit_mal"
-                Ok "Job ejecutado con exito. FactSales=$($r.Rows[0].fact)  ErrorFactSales=$($r.Rows[0].err)  DimFecha=$($r.Rows[0].fecha)  auditorias con error=$($r.Rows[0].audit_mal)"
+                $r = Consulta $cn "SELECT (SELECT COUNT(*) FROM DWH_AW.Sales.FactSales) AS fact, (SELECT COUNT(*) FROM DWH_AW.Sales.ErrorFactSales) AS err, (SELECT COUNT(*) FROM DWH_AW.GENERICO.DimFecha) AS fecha, (SELECT COUNT(*) FROM DWH_AW.dbo.DIM_AUDIT WHERE SuccessfulProcessingInd <> 'Y' AND ExecStartDT >= '$inicioJob') AS audit_mal"
+                Ok "Job ejecutado con exito. FactSales=$($r.Rows[0].fact)  ErrorFactSales=$($r.Rows[0].err)  DimFecha=$($r.Rows[0].fecha)  auditorias con error en esta corrida=$($r.Rows[0].audit_mal)"
             } else {
                 Aviso "El Job fallo (o sigue ejecutando). Causa:"
                 try {
