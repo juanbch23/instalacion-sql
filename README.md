@@ -1,7 +1,8 @@
-# Laboratorio 4 · Bases de datos listas (parte 1)
+# Laboratorio 4 · Entorno listo (partes 1 y 2)
 
-Restaura **en un solo paso** las bases de la **parte 1 del PDF** (restaurar AdventureWorks, crear STAGE y DWH con todos sus
-objetos), usando **tu** instancia de SQL Server y **tus** rutas. No tienes que cambiar nada a mano.
+Deja listo **en un solo paso** el laboratorio: las bases de la **parte 1 del PDF** (AdventureWorks, STAGE y DWH con todos sus
+objetos) y el **ETL de la parte 2** (paquetes SSIS en el catalogo SSISDB + Job de SQL Server Agent), usando **tu** instancia de
+SQL Server y **tus** rutas. No tienes que cambiar nada a mano.
 
 | Se restaura | Qué es |
 |---|---|
@@ -26,7 +27,15 @@ objetos), usando **tu** instancia de SQL Server y **tus** rutas. No tienes que c
    3. le da permiso de lectura al servicio de SQL Server sobre la carpeta del repositorio,
    4. restaura las tres bases en la carpeta de datos de **tu** instancia,
    5. deja la ruta de `Dim_Fecha` apuntando a la copia que viene en este repositorio.
-4. Al terminar muestra las tres bases en `ONLINE` y el nombre del servidor al que debes conectarte en SSMS.
+   6. **ETL (parte 2):** busca una instancia con SQL Server Agent y Integration Services (Developer/Standard; Express no sirve),
+      crea el catalogo **SSISDB** si no existe, implementa los proyectos `STAGE_AW` y `DWH_AW` (cambiandoles el servidor por el
+      tuyo), crea el Job **`Job_AdventureWorks`** (Stage y luego DWH, todos los dias 02:00), le da al Agent permiso sobre las
+      bases y la carpeta `Dim_Fecha`, y **ejecuta el Job una vez** para comprobar que todo carga.
+4. Al terminar muestra las tres bases en `ONLINE`, el resultado del Job y el servidor al que debes conectarte en SSMS.
+
+**Para el ETL necesitas:** SSMS (trae la libreria para crear SSISDB), la caracteristica *Integration Services* de SQL Server y
+SQL Server Agent. Si falta algo, el script lo dice y deja las bases restauradas. Opciones: `-SinETL` (solo bases),
+`-SinProbarJob` (crea el Job pero no lo ejecuta). Clave maestra del catalogo (si lo crea): `Lab4_SSISDB#2026`.
 
 > **Si Windows no deja ejecutar el `.bat`:** abre PowerShell en la carpeta y escribe
 > `powershell -ExecutionPolicy Bypass -File .\restaurar_laboratorio4.ps1`
@@ -41,4 +50,4 @@ objetos), usando **tu** instancia de SQL Server y **tus** rutas. No tienes que c
 - Al restaurar AdventureWorks tarda unos segundos más: es normal.
 - Si sale *"Access is denied"*: cierra la ventana y ejecuta el `.bat` con **clic derecho → Ejecutar como administrador**.
 - Si prefieres hacerlo a mano en SSMS: `laboratorio4_respaldos/LEEME.md` explica el script `restaurar_laboratorio4.sql`.
-- Lo que **no** incluye: los paquetes SSIS (la parte 2 del PDF). En ellos usa el nombre de **tu** servidor, el que muestra el script al final.
+- Los paquetes SSIS originales estan en `laboratorio4_etl/` (`.ispac`); el script los adapta a tu servidor al implementarlos.

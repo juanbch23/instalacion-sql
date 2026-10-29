@@ -18,7 +18,12 @@
 [CmdletBinding()]
 param(
     [string]$Instancia = '',     # nombre de la instancia (DEV, SQLEXPRESS, MSSQLSERVER para la predeterminada...)
-    [switch]$Simular             # solo muestra lo que haria
+    [switch]$Simular,            # solo muestra lo que haria
+    [switch]$SinETL,             # solo restaura las bases (no despliega los paquetes SSIS ni crea el Job)
+    [switch]$SinProbarJob,       # despliega y crea el Job pero no lo ejecuta una vez
+    [string]$ClaveSSISDB = 'Lab4_SSISDB#2026',   # clave maestra del catalogo SSISDB (solo si hay que crearlo)
+    [string]$CarpetaSSIS = 'AdventureWork',      # carpeta del catalogo SSISDB
+    [string]$NombreJob   = 'Job_AdventureWorks'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -150,7 +155,11 @@ try {
         [System.Text.RegularExpressions.MatchEvaluator]{ param($m) $m.Groups[1].Value + (& $comillas $rutaFechaFinal) + $m.Groups[2].Value })
     Info "Carpeta de respaldos : $carpetaBak"
     Info "Carpeta Dim_Fecha    : $rutaFechaFinal"
-    if ($Simular) { Info 'Se restaurarian AdventureWorks2016CTP3, STAGE_AW y DWH_AW (las que no existan).'; return }
+    if ($Simular) {
+        Info 'Se restaurarian AdventureWorks2016CTP3, STAGE_AW y DWH_AW (las que no existan).'
+        if (-not $SinETL) { Info "Despues se desplegarian los paquetes SSIS en SSISDB (carpeta $CarpetaSSIS) y se crearia el Job $NombreJob." }
+        return
+    }
 
     Info 'Restaurando (AdventureWorks tarda un poco: tiene muchos pasos de actualizacion)...'
     $silenciar = 'percent processed|por ciento procesado|upgrade step|paso de actualiz|Converting database|Convirtiendo la base'
@@ -174,7 +183,141 @@ try {
     if ($faltan) { Aviso "No quedaron restauradas: $($faltan -join ', ')" }
     Write-Host ''
     Info "Conectate en SSMS a:  $servidor   (Autenticacion de Windows; si pide certificado, marca 'Confiar en el certificado del servidor')"
-    Info 'Siguiente paso: la parte 2 del PDF (ETL con Integration Services).'
-    Info "En los paquetes SSIS usa el nombre de TU servidor: $servidor"
+    if ($faltan) { return }
+
+    # ------------------------------------------------------------------------------------------ 5. ETL (parte 2)
+    if ($SinETL) { Info 'ETL omitido (-SinETL).'; return }
+    Titulo '5. ETL: paquetes SSIS en SSISDB + Job'
+    $ErrorActionPreference = 'Continue'
+    try {
+        # 5.1 instancia con Integration Services, SQL Server Agent y edicion que no sea Express
+        $hayIS = [bool](Get-Service -Name 'MsDtsServer*' -ErrorAction SilentlyContinue)
+        $cands = @($elegida) + @($todas | Where-Object { $_.Nombre -ne $elegida.Nombre -and $_.Mayor -ge 17 -and $_.Estado -eq 'Running' })
+        $etl = $null
+        foreach ($c in $cands) {
+            $svcA = if ($c.Nombre -eq 'MSSQLSERVER') { 'SQLSERVERAGENT' } else { 'SQLAgent$' + $c.Nombre }
+            if ($c.Edicion -match 'Express' -or -not (Get-Service -Name $svcA -ErrorAction SilentlyContinue)) { continue }
+            $etl = [pscustomobject]@{ Inst = $c; Agente = $svcA }; break
+        }
+        if (-not $hayIS) { Aviso 'No se encontro el servicio de Integration Services (MsDtsServer*): instala la caracteristica "Integration Services" y vuelve a ejecutar.'; return }
+        if (-not $etl)   { Aviso 'Ninguna instancia encendida tiene SQL Server Agent y edicion Developer/Standard/Enterprise (Express no tiene catalogo SSISDB ni Agent). Las bases quedaron restauradas; el ETL no se pudo desplegar.'; return }
+        $servEtl = if ($etl.Inst.Nombre -eq 'MSSQLSERVER') { $Equipo } else { "$Equipo\$($etl.Inst.Nombre)" }
+        Ok "Instancia para el ETL: $servEtl  ($($etl.Inst.Edicion))"
+
+        # 5.2 SQL Server Agent encendido
+        $sa = Get-Service -Name $etl.Agente
+        if ($sa.Status -ne 'Running') {
+            try { Start-Service -Name $etl.Agente -ErrorAction Stop; Start-Sleep 5; Ok 'SQL Server Agent encendido.' }
+            catch { Aviso "No se pudo encender SQL Server Agent ($($etl.Agente)). Enciendelo en services.msc o ejecuta este script como administrador."; return }
+        }
+
+        $cnE = if ($etl.Inst.Nombre -eq $elegida.Nombre) { $cn } else { Abrir-Conexion $etl.Inst.Nombre }
+        try {
+            if ([int](Consulta $cnE "SELECT IS_SRVROLEMEMBER('sysadmin') AS v").Rows[0].v -ne 1) { Aviso "No eres administrador de $servEtl."; return }
+            $ctaAgente = [string](Get-CimInstance Win32_Service -Filter "Name='$($etl.Agente.Replace('$', '$'))'" -ErrorAction SilentlyContinue).StartName
+            if (-not $ctaAgente) { Aviso 'No se pudo saber la cuenta de SQL Server Agent.'; return }
+            Info "SQL Server Agent corre como: $ctaAgente"
+
+            # 5.3 permisos del Agent: leer Dim_Fecha y, si las bases estan en otra instancia, usarlas
+            & icacls $rutaFechaFinal /grant ($ctaAgente + ':(OI)(CI)RX') | Out-Null
+            if ($LASTEXITCODE -ne 0) { Aviso "No se pudo dar permiso de lectura a $ctaAgente sobre $rutaFechaFinal." } else { Ok 'El Agent puede leer la carpeta Dim_Fecha.' }
+            if ($etl.Inst.Nombre -ne $elegida.Nombre) {
+                $q = $ctaAgente.Replace("'", "''")
+                [void](Consulta $cn "IF NOT EXISTS (SELECT 1 FROM sys.server_principals WHERE name = N'$q') CREATE LOGIN [$ctaAgente] FROM WINDOWS; SELECT 1 AS v")
+                foreach ($bd in @(@('AdventureWorks2016CTP3', 'db_datareader'), @('STAGE_AW', 'db_owner'), @('DWH_AW', 'db_owner'))) {
+                    [void](Consulta $cn "USE [$($bd[0])]; IF NOT EXISTS (SELECT 1 FROM sys.database_principals WHERE name = N'$q') CREATE USER [$ctaAgente] FOR LOGIN [$ctaAgente]; ALTER ROLE [$($bd[1])] ADD MEMBER [$ctaAgente]; SELECT 1 AS v")
+                }
+                Ok "El Agent de $servEtl tiene acceso a las bases de $servidor."
+            }
+
+            # 5.4 DLL de administracion de SSIS (vienen con SSMS)
+            $ide = Get-ChildItem 'C:\Program Files\Microsoft SQL Server Management Studio *\Release\Common7\IDE', 'C:\Program Files\Microsoft SQL Server Management Studio *\Common7\IDE' -ErrorAction SilentlyContinue | Select-Object -Last 1
+            $dllIS = if ($ide) { Get-ChildItem $ide.FullName -Recurse -Filter 'Microsoft.SqlServer.Management.IntegrationServices.dll' -ErrorAction SilentlyContinue | Select-Object -First 1 }
+            if (-not $dllIS) { Aviso 'No se encontro SSMS (hace falta para crear el catalogo SSISDB). Instala SSMS y vuelve a ejecutar.'; return }
+            $script:probe = @($ide.FullName, $dllIS.DirectoryName)
+            [AppDomain]::CurrentDomain.add_AssemblyResolve({
+                param($s, $e)
+                $n = ($e.Name -split ',')[0] + '.dll'
+                foreach ($d in $script:probe) { $p = Join-Path $d $n; if (Test-Path $p) { return [Reflection.Assembly]::LoadFrom($p) } }
+                return $null
+            })
+            [void][Reflection.Assembly]::LoadFrom((Join-Path $ide.FullName 'Microsoft.Data.SqlClient.dll'))
+            [void][Reflection.Assembly]::LoadFrom($dllIS.FullName)
+
+            # 5.5 catalogo SSISDB y carpeta
+            [void](Consulta $cnE "EXEC sp_configure 'clr enabled', 1; RECONFIGURE; SELECT 1 AS v")
+            $cm = New-Object Microsoft.Data.SqlClient.SqlConnection "Data Source=$servEtl;Initial Catalog=master;Integrated Security=SSPI;TrustServerCertificate=True"
+            $cm.Open()
+            try {
+                $ssis = New-Object Microsoft.SqlServer.Management.IntegrationServices.IntegrationServices $cm
+                $cat = $ssis.Catalogs['SSISDB']
+                if (-not $cat) {
+                    $cat = New-Object Microsoft.SqlServer.Management.IntegrationServices.Catalog($ssis, 'SSISDB', $ClaveSSISDB)
+                    $cat.Create(); Ok "Catalogo SSISDB creado (clave maestra: $ClaveSSISDB)"
+                } else { Ok 'Catalogo SSISDB ya existia.' }
+                $fol = $cat.Folders[$CarpetaSSIS]
+                if (-not $fol) {
+                    $fol = New-Object Microsoft.SqlServer.Management.IntegrationServices.CatalogFolder($cat, $CarpetaSSIS, 'Solucion AdventureWork')
+                    $fol.Create(); Ok "Carpeta $CarpetaSSIS creada."
+                }
+
+                # 5.6 paquetes: se les cambia el servidor por el de ESTA maquina y se implementan
+                Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+                foreach ($p in 'STAGE_AW', 'DWH_AW') {
+                    $tmp = Join-Path $env:TEMP "$p.lab4.ispac"
+                    Copy-Item (Join-Path $PSScriptRoot "laboratorio4_etl\$p.ispac") $tmp -Force
+                    $zip = [IO.Compression.ZipFile]::Open($tmp, 'Update')
+                    try {
+                        foreach ($en in @($zip.Entries | Where-Object { $_.Name -like '*.conmgr' })) {
+                            $sr = New-Object IO.StreamReader($en.Open()); $txt = $sr.ReadToEnd(); $sr.Close()
+                            $txt = [regex]::Replace($txt, 'Data Source=[^;"]*', { param($m) "Data Source=$servidor" })
+                            $nombre = $en.FullName; $en.Delete()
+                            $ne = $zip.CreateEntry($nombre); $sw = New-Object IO.StreamWriter($ne.Open(), (New-Object Text.UTF8Encoding($false))); $sw.Write($txt); $sw.Close()
+                        }
+                    } finally { $zip.Dispose() }
+                    [void]$fol.DeployProject($p, [IO.File]::ReadAllBytes($tmp))
+                    Remove-Item $tmp -Force
+                    Ok "Proyecto $p implementado en SSISDB\$CarpetaSSIS (apunta a $servidor)"
+                }
+            } finally { $cm.Close() }
+
+            # 5.7 Job de SQL Server Agent (STAGE y luego DWH, diario 02:00)
+            $jobSql = @"
+USE [msdb];
+IF EXISTS (SELECT 1 FROM msdb.dbo.sysjobs WHERE name = N'$NombreJob') EXEC msdb.dbo.sp_delete_job @job_name = N'$NombreJob', @delete_unused_schedule = 1;
+DECLARE @server sysname = N'$servEtl';
+DECLARE @c1 nvarchar(max) = N'/ISSERVER "\"\SSISDB\$CarpetaSSIS\STAGE_AW\MasterExecuteStage.dtsx\"" /SERVER "\"' + @server + N'\"" /Par "\"`$ServerOption::LOGGING_LEVEL(Int16)\"";1 /Par "\"`$ServerOption::SYNCHRONIZED(Boolean)\"";True /CALLERINFO SQLAGENT /REPORTING E';
+DECLARE @c2 nvarchar(max) = N'/ISSERVER "\"\SSISDB\$CarpetaSSIS\DWH_AW\MasterExecuteDWH.dtsx\"" /SERVER "\"' + @server + N'\"" /Par "\"`$ServerOption::LOGGING_LEVEL(Int16)\"";1 /Par "\"`$ServerOption::SYNCHRONIZED(Boolean)\"";True /CALLERINFO SQLAGENT /REPORTING E';
+DECLARE @owner sysname = SUSER_SNAME();
+EXEC msdb.dbo.sp_add_job @job_name = N'$NombreJob', @enabled = 1, @description = N'Carga STAGE_AW y luego DWH_AW (paquetes maestros del catalogo SSISDB)', @owner_login_name = @owner;
+EXEC msdb.dbo.sp_add_jobstep @job_name = N'$NombreJob', @step_name = N'Step_1_Stage_AW', @step_id = 1, @subsystem = N'SSIS', @command = @c1, @on_success_action = 4, @on_success_step_id = 2, @on_fail_action = 2;
+EXEC msdb.dbo.sp_add_jobstep @job_name = N'$NombreJob', @step_name = N'Step_2_DWH_AW', @step_id = 2, @subsystem = N'SSIS', @command = @c2, @on_success_action = 1, @on_fail_action = 2;
+EXEC msdb.dbo.sp_add_jobschedule @job_name = N'$NombreJob', @name = N'Diario_0200', @enabled = 1, @freq_type = 4, @freq_interval = 1, @active_start_time = 020000;
+EXEC msdb.dbo.sp_add_jobserver @job_name = N'$NombreJob', @server_name = N'(local)';
+SELECT 1 AS v;
+"@
+            [void](Consulta $cnE $jobSql)
+            Ok "Job $NombreJob creado en $servEtl (diario 02:00)."
+
+            # 5.8 prueba: se ejecuta una vez
+            if ($SinProbarJob) { Info "Para ejecutarlo: SSMS > SQL Server Agent > Jobs > $NombreJob > Iniciar trabajo en el paso."; return }
+            Info 'Ejecutando el Job una vez para comprobar que todo funciona (1-3 minutos)...'
+            $jn = $NombreJob.Replace("'", "''")
+            [void](Consulta $cnE "EXEC msdb.dbo.sp_start_job @job_name = N'$jn'; SELECT 1 AS v")
+            $limite = (Get-Date).AddMinutes(15); $fin = $false
+            do {
+                Start-Sleep 5
+                $act = Consulta $cnE "SELECT COUNT(*) AS n FROM msdb.dbo.sysjobactivity a JOIN msdb.dbo.sysjobs j ON j.job_id = a.job_id WHERE j.name = N'$jn' AND a.start_execution_date IS NOT NULL AND a.stop_execution_date IS NULL AND a.session_id = (SELECT MAX(session_id) FROM msdb.dbo.syssessions)"
+                $fin = ([int]$act.Rows[0].n -eq 0)
+            } until ($fin -or (Get-Date) -gt $limite)
+            $h = Consulta $cnE "SELECT TOP 1 h.run_status AS st FROM msdb.dbo.sysjobhistory h JOIN msdb.dbo.sysjobs j ON j.job_id = h.job_id WHERE j.name = N'$jn' AND h.step_id = 0 ORDER BY h.instance_id DESC"
+            if ($h.Rows.Count -and [int]$h.Rows[0].st -eq 1) {
+                $r = Consulta $cn "SELECT (SELECT COUNT(*) FROM DWH_AW.Sales.FactSales) AS fact, (SELECT COUNT(*) FROM DWH_AW.Sales.ErrorFactSales) AS err, (SELECT COUNT(*) FROM DWH_AW.GENERICO.DimFecha) AS fecha, (SELECT COUNT(*) FROM DWH_AW.dbo.DIM_AUDIT WHERE SuccessfulProcessingInd <> 'Y') AS audit_mal"
+                Ok "Job ejecutado con exito. FactSales=$($r.Rows[0].fact)  ErrorFactSales=$($r.Rows[0].err)  DimFecha=$($r.Rows[0].fecha)  auditorias con error=$($r.Rows[0].audit_mal)"
+            } else { Aviso "El Job no termino con exito. Revisa: SSMS > SQL Server Agent > Jobs > $NombreJob > Ver historial." }
+        } finally { if ($cnE -ne $cn) { $cnE.Close() } }
+    } catch { Aviso "El ETL no se pudo completar: $($_.Exception.Message)" }
+    Write-Host ''
+    Info "Listo. Conectate en SSMS a $servidor. Los paquetes y el Job estan en $servEtl."
 }
 finally { $cn.Close() }
