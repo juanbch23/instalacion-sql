@@ -231,22 +231,59 @@ try {
             }
 
             # 5.4 DLL de administracion de SSIS (vienen con SSMS)
-            $ide = Get-ChildItem 'C:\Program Files\Microsoft SQL Server Management Studio *\Release\Common7\IDE', 'C:\Program Files\Microsoft SQL Server Management Studio *\Common7\IDE' -ErrorAction SilentlyContinue | Select-Object -Last 1
-            $dllIS = if ($ide) { Get-ChildItem $ide.FullName -Recurse -Filter 'Microsoft.SqlServer.Management.IntegrationServices.dll' -ErrorAction SilentlyContinue | Select-Object -First 1 }
-            if (-not $dllIS) { Aviso 'No se encontro SSMS (hace falta para crear el catalogo SSISDB). Instala SSMS y vuelve a ejecutar.'; return }
-            $script:probe = @($ide.FullName, $dllIS.DirectoryName)
+            $raices = @('C:\Program Files\Microsoft SQL Server Management Studio*', 'C:\Program Files (x86)\Microsoft SQL Server Management Studio*',
+                        'C:\Program Files\Microsoft Visual Studio\*\*\Common7\IDE', 'C:\Program Files (x86)\Microsoft Visual Studio\*\*\Common7\IDE',
+                        'C:\Program Files\Microsoft SQL Server\*\SDK\Assemblies', 'C:\Program Files (x86)\Microsoft SQL Server\*\SDK\Assemblies')
+            $dlls = @()
+            foreach ($r in $raices) {
+                foreach ($d in @(Get-ChildItem $r -Directory -ErrorAction SilentlyContinue)) {
+                    $dlls += Get-ChildItem $d.FullName -Recurse -Filter 'Microsoft.SqlServer.Management.IntegrationServices.dll' -ErrorAction SilentlyContinue
+                }
+                $dlls += Get-ChildItem $r -Filter 'Microsoft.SqlServer.Management.IntegrationServices.dll' -ErrorAction SilentlyContinue
+            }
+            # preferir la version 170 (SQL Server 2025) y la mas reciente
+            $dllIS = $dlls | Sort-Object @{ e = { $_.FullName -match '[\\/]170[\\/]' }; Descending = $true }, @{ e = { $_.LastWriteTime }; Descending = $true } | Select-Object -First 1
+            if (-not $dllIS) {
+                Aviso 'No se encontro la libreria de Integration Services en SSMS, Visual Studio ni SQL Server. Se instala SSMS automaticamente (winget)...'
+                if (Get-Command winget -ErrorAction SilentlyContinue) {
+                    & winget install --id Microsoft.SQLServerManagementStudio.22 -e --silent --accept-package-agreements --accept-source-agreements
+                    foreach ($r in $raices) { $dlls += Get-ChildItem $r -Recurse -Filter 'Microsoft.SqlServer.Management.IntegrationServices.dll' -ErrorAction SilentlyContinue }
+                    $dllIS = $dlls | Select-Object -First 1
+                }
+                if (-not $dllIS) { Aviso 'No se pudo instalar SSMS solo. Instala SSMS (https://aka.ms/ssms/22/release/vs_SSMS.exe) y vuelve a ejecutar el script.'; return }
+            }
+            Info "Libreria de SSIS: $($dllIS.FullName)"
+            $carpetas = @($dllIS.DirectoryName)
+            $padre = $dllIS.Directory
+            for ($n = 0; $n -lt 6 -and $padre; $n++) { $carpetas += $padre.FullName; $padre = $padre.Parent }
+            $script:probe = $carpetas | Select-Object -Unique
             [AppDomain]::CurrentDomain.add_AssemblyResolve({
                 param($s, $e)
                 $n = ($e.Name -split ',')[0] + '.dll'
                 foreach ($d in $script:probe) { $p = Join-Path $d $n; if (Test-Path $p) { return [Reflection.Assembly]::LoadFrom($p) } }
                 return $null
             })
-            [void][Reflection.Assembly]::LoadFrom((Join-Path $ide.FullName 'Microsoft.Data.SqlClient.dll'))
-            [void][Reflection.Assembly]::LoadFrom($dllIS.FullName)
+            $asmIS = [Reflection.Assembly]::LoadFrom($dllIS.FullName)
+            $usaMDS = [bool]($asmIS.GetReferencedAssemblies() | Where-Object { $_.Name -eq 'Microsoft.Data.SqlClient' })
+            if ($usaMDS) {
+                $mds = $script:probe | ForEach-Object { Join-Path $_ 'Microsoft.Data.SqlClient.dll' } | Where-Object { Test-Path $_ } | Select-Object -First 1
+                if (-not $mds) {   # buscar en la carpeta IDE de SSMS / Visual Studio y en las demas ubicaciones
+                    $ideDir = $dllIS.Directory; while ($ideDir -and $ideDir.Name -ne 'IDE') { $ideDir = $ideDir.Parent }
+                    $buscar = @(); if ($ideDir) { $buscar += $ideDir.FullName }; $buscar += @(Get-ChildItem $raices -Directory -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+                    foreach ($b in $buscar) {
+                        $mds = (Get-ChildItem $b -Recurse -Filter 'Microsoft.Data.SqlClient.dll' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+                        if ($mds) { break }
+                    }
+                }
+                if (-not $mds) { throw 'No se encontro Microsoft.Data.SqlClient.dll (viene con SSMS). Instala SSMS y vuelve a ejecutar.' }
+                $script:probe = @($script:probe) + (Split-Path $mds)
+                [void][Reflection.Assembly]::LoadFrom($mds)
+            }
+            $tipoCn = if ($usaMDS) { 'Microsoft.Data.SqlClient.SqlConnection' } else { 'System.Data.SqlClient.SqlConnection' }
 
             # 5.5 catalogo SSISDB y carpeta
             [void](Consulta $cnE "EXEC sp_configure 'clr enabled', 1; RECONFIGURE; SELECT 1 AS v")
-            $cm = New-Object Microsoft.Data.SqlClient.SqlConnection "Data Source=$servEtl;Initial Catalog=master;Integrated Security=SSPI;TrustServerCertificate=True"
+            $cm = New-Object $tipoCn "Data Source=$servEtl;Initial Catalog=master;Integrated Security=SSPI;TrustServerCertificate=True"
             $cm.Open()
             try {
                 $ssis = New-Object Microsoft.SqlServer.Management.IntegrationServices.IntegrationServices $cm
