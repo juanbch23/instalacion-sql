@@ -305,11 +305,13 @@ try {
                     Copy-Item (Join-Path $PSScriptRoot "laboratorio4_etl\$p.ispac") $tmp -Force
                     $zip = [IO.Compression.ZipFile]::Open($tmp, 'Update')
                     try {
-                        foreach ($en in @($zip.Entries | Where-Object { $_.Name -like '*.conmgr' })) {
+                        # el servidor esta en las conexiones del proyecto (.conmgr), en el manifiesto y dentro de algunos paquetes (.dtsx)
+                        foreach ($en in @($zip.Entries | Where-Object { $_.Name -match '\.(conmgr|dtsx|manifest)$' })) {
                             $sr = New-Object IO.StreamReader($en.Open()); $txt = $sr.ReadToEnd(); $sr.Close()
-                            $txt = [regex]::Replace($txt, 'Data Source=[^;"]*', { param($m) "Data Source=$servidor" })
+                            $nuevo = $txt.Replace('LAPTOP-IO596P6A\SQLEXPRESS', $servidor)
+                            if ($nuevo -eq $txt) { continue }
                             $nombre = $en.FullName; $en.Delete()
-                            $ne = $zip.CreateEntry($nombre); $sw = New-Object IO.StreamWriter($ne.Open(), (New-Object Text.UTF8Encoding($false))); $sw.Write($txt); $sw.Close()
+                            $ne = $zip.CreateEntry($nombre); $sw = New-Object IO.StreamWriter($ne.Open(), (New-Object Text.UTF8Encoding($false))); $sw.Write($nuevo); $sw.Close()
                         }
                     } finally { $zip.Dispose() }
                     [void]$fol.DeployProject($p, [IO.File]::ReadAllBytes($tmp))
