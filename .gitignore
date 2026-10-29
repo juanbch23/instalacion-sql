@@ -1,3 +1,7 @@
 *.zip
 descargas/
 *.log
+
+bin/
+obj/
+*.dtproj.user

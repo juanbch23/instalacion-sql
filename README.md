@@ -31,6 +31,8 @@ SQL Server y **tus** rutas. No tienes que cambiar nada a mano.
       crea el catalogo **SSISDB** si no existe, implementa los proyectos `STAGE_AW` y `DWH_AW` (cambiandoles el servidor por el
       tuyo), crea el Job **`Job_AdventureWorks`** (Stage y luego DWH, todos los dias 02:00), le da al Agent permiso sobre las
       bases y la carpeta `Dim_Fecha`, y **ejecuta el Job una vez** para comprobar que todo carga.
+   7. **Solucion de Visual Studio:** deja en `Documentos\AdventureWork\AdventureWork.sln` los 2 proyectos (`STAGE_AW` y `DWH_AW`)
+      con todos sus paquetes y las conexiones ya apuntando a **tu** servidor, para abrirlos, verlos y ejecutarlos en Visual Studio.
 4. Al terminar muestra las tres bases en `ONLINE`, el resultado del Job y el servidor al que debes conectarte en SSMS.
 
 **Para el ETL necesitas:** SSMS (trae la libreria para crear SSISDB), la caracteristica *Integration Services* de SQL Server y

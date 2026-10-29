@@ -318,6 +318,20 @@ try {
                 }
             } finally { $cm.Close() }
 
+            # 5.6b solucion de Visual Studio con los 2 proyectos (STAGE_AW y DWH_AW) apuntando a ESTE servidor
+            try {
+                $destSol = Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'AdventureWork'
+                New-Item -ItemType Directory -Force $destSol | Out-Null
+                Copy-Item -Path (Join-Path $PSScriptRoot 'laboratorio4_etl\AdventureWork\*') -Destination $destSol -Recurse -Force
+                foreach ($f in Get-ChildItem $destSol -Recurse -File -Include *.dtsx, *.conmgr, *.dtproj, *.params) {
+                    $by = [IO.File]::ReadAllBytes($f.FullName); $bom = ($by.Length -ge 3 -and $by[0] -eq 0xEF -and $by[1] -eq 0xBB -and $by[2] -eq 0xBF)
+                    $tx = [Text.Encoding]::UTF8.GetString($by); if ($bom) { $tx = $tx.TrimStart([char]0xFEFF) }
+                    $nuevo = $tx.Replace('LAPTOP-IO596P6A\SQLEXPRESS', $servidor)
+                    if ($nuevo -ne $tx) { [IO.File]::WriteAllText($f.FullName, $nuevo, (New-Object Text.UTF8Encoding($bom))) }
+                }
+                Ok "Solucion de Visual Studio: $destSol\AdventureWork.sln  (conectada a $servidor)"
+            } catch { Aviso "No se pudo crear la solucion de Visual Studio: $($_.Exception.Message)" }
+
             # 5.7 Job de SQL Server Agent (STAGE y luego DWH, diario 02:00)
             $jobSql = @"
 USE [msdb];

@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<DTS:ConnectionManager xmlns:DTS="www.microsoft.com/SqlServer/Dts"
+  DTS:ObjectName="AdoNet STAGE_AW Juan"
+  DTS:DTSID="{AC7FBC7A-6CB5-4DDE-B42C-56003123F2D9}"
+  DTS:CreationName="ADO.NET:System.Data.SqlClient.SqlConnection, System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+  <DTS:ObjectData>
+    <DTS:ConnectionManager
+      DTS:ConnectionString="Data Source=LAPTOP-IO596P6A\SQLEXPRESS;Initial Catalog=STAGE_AW;Integrated Security=True;Encrypt=False;TrustServerCertificate=True;" />
+  </DTS:ObjectData>
+</DTS:ConnectionManager>
