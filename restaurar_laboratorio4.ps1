@@ -365,7 +365,18 @@ SELECT 1 AS v;
             if ($h.Rows.Count -and [int]$h.Rows[0].st -eq 1) {
                 $r = Consulta $cn "SELECT (SELECT COUNT(*) FROM DWH_AW.Sales.FactSales) AS fact, (SELECT COUNT(*) FROM DWH_AW.Sales.ErrorFactSales) AS err, (SELECT COUNT(*) FROM DWH_AW.GENERICO.DimFecha) AS fecha, (SELECT COUNT(*) FROM DWH_AW.dbo.DIM_AUDIT WHERE SuccessfulProcessingInd <> 'Y') AS audit_mal"
                 Ok "Job ejecutado con exito. FactSales=$($r.Rows[0].fact)  ErrorFactSales=$($r.Rows[0].err)  DimFecha=$($r.Rows[0].fecha)  auditorias con error=$($r.Rows[0].audit_mal)"
-            } else { Aviso "El Job no termino con exito. Revisa: SSMS > SQL Server Agent > Jobs > $NombreJob > Ver historial." }
+            } else {
+                Aviso "El Job fallo (o sigue ejecutando). Causa:"
+                try {
+                    $em = Consulta $cnE "SELECT TOP 6 CAST(em.message AS nvarchar(1500)) AS msg FROM SSISDB.catalog.event_messages em WHERE em.message_type = 120 AND em.operation_id = (SELECT MAX(execution_id) FROM SSISDB.catalog.executions WHERE folder_name = N'$($CarpetaSSIS.Replace("'", "''"))') ORDER BY em.event_message_id"
+                    foreach ($x in $em.Rows) { Write-Host ("    SSIS: " + $x.msg) -ForegroundColor Red }
+                    if (-not $em.Rows.Count) {
+                        $hm = Consulta $cnE "SELECT TOP 3 CAST(h.message AS nvarchar(1500)) AS msg FROM msdb.dbo.sysjobhistory h JOIN msdb.dbo.sysjobs j ON j.job_id = h.job_id WHERE j.name = N'$jn' AND h.step_id > 0 ORDER BY h.instance_id DESC"
+                        foreach ($x in $hm.Rows) { Write-Host ("    Job: " + $x.msg) -ForegroundColor Red }
+                    }
+                } catch { Info "No se pudo leer el detalle: $($_.Exception.Message)" }
+                Info 'Manda esas lineas rojas para corregirlo. Tambien: SSMS > Integration Services Catalogs > SSISDB > Informes > Todas las ejecuciones.'
+            }
         } finally { if ($cnE -ne $cn) { $cnE.Close() } }
     } catch { Aviso "El ETL no se pudo completar: $($_.Exception.Message)" }
     Write-Host ''
