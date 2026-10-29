@@ -3,8 +3,8 @@
   DTS:refId="Package"
   DTS:CreationDate="9/16/2026 1:18:48 PM"
   DTS:CreationName="Microsoft.Package"
-  DTS:CreatorComputerName="LAPTOP-IO596P6A"
-  DTS:CreatorName="LAPTOP-IO596P6A\Juan"
+  DTS:CreatorComputerName="EQUIPO"
+  DTS:CreatorName="EQUIPO\Usuario"
   DTS:DTSID="{2F1E9502-244E-4346-A503-3CD34A18C2EC}"
   DTS:ExecutableType="Microsoft.Package"
   DTS:LastModifiedProductVersion="16.0.1000.6"
@@ -131,7 +131,7 @@
                 <connection
                   refId="Package\Tarea Flujo de datos\Destino de OLE DB.Connections[OleDbConnection]"
                   connectionManagerID="{9E229D6D-229F-42F8-A454-A7F790CA9672}:external"
-                  connectionManagerRefId="Project.ConnectionManagers[OleDB STAGE_AW Juan]"
+                  connectionManagerRefId="Project.ConnectionManagers[OleDB STAGE_AW]"
                   description="The OLE DB runtime connection used to access the database."
                   name="OleDbConnection" />
               </connections>

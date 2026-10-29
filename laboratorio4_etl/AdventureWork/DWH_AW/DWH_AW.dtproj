@@ -21,8 +21,8 @@
           <SSIS:Property SSIS:Name="VersionComments">
           </SSIS:Property>
           <SSIS:Property SSIS:Name="CreationDate">2026-09-16T13:19:00.2897675-05:00</SSIS:Property>
-          <SSIS:Property SSIS:Name="CreatorName">LAPTOP-IO596P6A\Juan</SSIS:Property>
-          <SSIS:Property SSIS:Name="CreatorComputerName">LAPTOP-IO596P6A</SSIS:Property>
+          <SSIS:Property SSIS:Name="CreatorName">EQUIPO\Usuario</SSIS:Property>
+          <SSIS:Property SSIS:Name="CreatorComputerName">EQUIPO</SSIS:Property>
           <SSIS:Property SSIS:Name="Description">
           </SSIS:Property>
           <SSIS:Property SSIS:Name="FormatVersion">1</SSIS:Property>
@@ -37,12 +37,12 @@
           <SSIS:Package SSIS:Name="MasterExecuteDWH.dtsx" SSIS:EntryPoint="1" />
         </SSIS:Packages>
         <SSIS:ConnectionManagers>
-          <SSIS:ConnectionManager SSIS:Name="AdoNet.DWH_AW.Juan.conmgr" />
-          <SSIS:ConnectionManager SSIS:Name="OleDB.DWH_AW.Juan.conmgr" />
+          <SSIS:ConnectionManager SSIS:Name="AdoNet.DWH_AW.conmgr" />
+          <SSIS:ConnectionManager SSIS:Name="OleDB.DWH_AW.conmgr" />
         </SSIS:ConnectionManagers>
         <SSIS:DeploymentInfo>
           <SSIS:ProjectConnectionParameters>
-            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW Juan.ConnectByProxy">
+            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW.ConnectByProxy">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -57,7 +57,7 @@
                 <SSIS:Property SSIS:Name="DataType">3</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW Juan.ConnectionString">
+            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW.ConnectionString">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -72,7 +72,7 @@
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW Juan.ConnectUsingManagedIdentity">
+            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW.ConnectUsingManagedIdentity">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -87,7 +87,7 @@
                 <SSIS:Property SSIS:Name="DataType">3</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW Juan.InitialCatalog">
+            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW.InitialCatalog">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -102,7 +102,7 @@
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW Juan.Password">
+            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW.Password">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -116,7 +116,7 @@
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW Juan.RetainSameConnection">
+            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW.RetainSameConnection">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -131,7 +131,7 @@
                 <SSIS:Property SSIS:Name="DataType">3</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW Juan.ServerName">
+            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW.ServerName">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -146,7 +146,7 @@
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW Juan.UserName">
+            <SSIS:Parameter SSIS:Name="CM.AdoNet DWH_AW.UserName">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -160,7 +160,7 @@
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW Juan.ConnectByProxy">
+            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW.ConnectByProxy">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -175,7 +175,7 @@
                 <SSIS:Property SSIS:Name="DataType">3</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW Juan.ConnectionString">
+            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW.ConnectionString">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -190,7 +190,7 @@
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW Juan.ConnectRetryCount">
+            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW.ConnectRetryCount">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -205,7 +205,7 @@
                 <SSIS:Property SSIS:Name="DataType">9</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW Juan.ConnectRetryInterval">
+            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW.ConnectRetryInterval">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -220,7 +220,7 @@
                 <SSIS:Property SSIS:Name="DataType">9</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW Juan.ConnectUsingManagedIdentity">
+            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW.ConnectUsingManagedIdentity">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -235,7 +235,7 @@
                 <SSIS:Property SSIS:Name="DataType">3</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW Juan.InitialCatalog">
+            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW.InitialCatalog">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -250,7 +250,7 @@
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW Juan.Password">
+            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW.Password">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -264,7 +264,7 @@
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW Juan.RetainSameConnection">
+            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW.RetainSameConnection">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -279,7 +279,7 @@
                 <SSIS:Property SSIS:Name="DataType">3</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW Juan.ServerName">
+            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW.ServerName">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>
@@ -294,7 +294,7 @@
                 <SSIS:Property SSIS:Name="DataType">18</SSIS:Property>
               </SSIS:Properties>
             </SSIS:Parameter>
-            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW Juan.UserName">
+            <SSIS:Parameter SSIS:Name="CM.OleDB DWH_AW.UserName">
               <SSIS:Properties>
                 <SSIS:Property SSIS:Name="ID">
                 </SSIS:Property>

@@ -19,6 +19,8 @@
 param(
     [string]$Instancia = '',     # nombre de la instancia (DEV, SQLEXPRESS, MSSQLSERVER para la predeterminada...)
     [switch]$Simular,            # solo muestra lo que haria
+    [switch]$Nuevo,              # borra las 3 bases, los paquetes y el Job y lo rehace TODO desde cero (pide confirmacion)
+    [switch]$Forzar,             # con -Nuevo: no pide confirmacion
     [switch]$SinETL,             # solo restaura las bases (no despliega los paquetes SSIS ni crea el Job)
     [switch]$SinProbarJob,       # despliega y crea el Job pero no lo ejecuta una vez
     [string]$ClaveSSISDB = 'Lab4_SSISDB#2026',   # clave maestra del catalogo SSISDB (solo si hay que crearlo)
@@ -144,6 +146,21 @@ try {
         Ok "El servicio de SQL Server puede leer: $carpetaBak"
     }
     $rutaFechaFinal = Join-Path $carpetaBak 'Dim_Fecha'
+
+    # ------------------------------------------------------------------------------------------ 2b. -Nuevo: empezar de cero
+    if ($Nuevo) {
+        Titulo 'Empezar de cero (-Nuevo)'
+        Aviso "Se van a BORRAR en $servidor las bases AdventureWorks2016CTP3, STAGE_AW y DWH_AW (con todos sus datos), los paquetes de SSISDB\$CarpetaSSIS y el Job $NombreJob. Despues se rehace todo desde los respaldos."
+        if ($Simular) { Info 'Simulacion: no se borra nada.' }
+        else {
+            if (-not $Forzar) { $r = Read-Host '  Escribe SI para continuar'; if ($r -ne 'SI') { throw 'Cancelado: no se borro nada.' } }
+            foreach ($bd in 'DWH_AW', 'STAGE_AW', 'AdventureWorks2016CTP3') {
+                [void](Consulta $cn "IF DB_ID(N'$bd') IS NOT NULL BEGIN ALTER DATABASE [$bd] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [$bd]; END; SELECT 1 AS v")
+                Ok "Base $bd borrada (si existia)."
+            }
+            $script:LimpiarCatalogo = $true
+        }
+    }
 
     # ------------------------------------------------------------------------------------------ 3. restauracion
     Titulo '3. Restauracion'
@@ -292,6 +309,16 @@ try {
                     $cat = New-Object Microsoft.SqlServer.Management.IntegrationServices.Catalog($ssis, 'SSISDB', $ClaveSSISDB)
                     $cat.Create(); Ok "Catalogo SSISDB creado (clave maestra: $ClaveSSISDB)"
                 } else { Ok 'Catalogo SSISDB ya existia.' }
+                if ($script:LimpiarCatalogo) {
+                    $cf = $CarpetaSSIS.Replace("'", "''")
+                    foreach ($pj in 'STAGE_AW', 'DWH_AW') {
+                        [void](Consulta $cnE "IF EXISTS (SELECT 1 FROM SSISDB.catalog.projects p JOIN SSISDB.catalog.folders f ON f.folder_id = p.folder_id WHERE f.name = N'$cf' AND p.name = N'$pj') EXEC SSISDB.catalog.delete_project N'$cf', N'$pj'; SELECT 1 AS v")
+                    }
+                    [void](Consulta $cnE "IF EXISTS (SELECT 1 FROM SSISDB.catalog.folders WHERE name = N'$cf') EXEC SSISDB.catalog.delete_folder N'$cf'; SELECT 1 AS v")
+                    $cat.Folders.Refresh()
+                    if (Test-Path (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'AdventureWork')) { Remove-Item (Join-Path ([Environment]::GetFolderPath('MyDocuments')) 'AdventureWork') -Recurse -Force -ErrorAction SilentlyContinue }
+                    Ok 'Paquetes anteriores de SSISDB y solucion de Documentos borrados.'
+                }
                 $fol = $cat.Folders[$CarpetaSSIS]
                 if (-not $fol) {
                     $fol = New-Object Microsoft.SqlServer.Management.IntegrationServices.CatalogFolder($cat, $CarpetaSSIS, 'Solucion AdventureWork')
@@ -308,10 +335,10 @@ try {
                         # el servidor esta en las conexiones del proyecto (.conmgr), en el manifiesto y dentro de algunos paquetes (.dtsx)
                         foreach ($en in @($zip.Entries | Where-Object { $_.Name -match '\.(conmgr|dtsx|manifest)$' })) {
                             $sr = New-Object IO.StreamReader($en.Open()); $txt = $sr.ReadToEnd(); $sr.Close()
-                            $nuevo = $txt.Replace('LAPTOP-IO596P6A\SQLEXPRESS', $servidor)
-                            if ($nuevo -eq $txt) { continue }
+                            $txtNuevo = $txt.Replace('LAPTOP-IO596P6A\SQLEXPRESS', $servidor)
+                            if ($txtNuevo -eq $txt) { continue }
                             $nombre = $en.FullName; $en.Delete()
-                            $ne = $zip.CreateEntry($nombre); $sw = New-Object IO.StreamWriter($ne.Open(), (New-Object Text.UTF8Encoding($false))); $sw.Write($nuevo); $sw.Close()
+                            $ne = $zip.CreateEntry($nombre); $sw = New-Object IO.StreamWriter($ne.Open(), (New-Object Text.UTF8Encoding($false))); $sw.Write($txtNuevo); $sw.Close()
                         }
                     } finally { $zip.Dispose() }
                     [void]$fol.DeployProject($p, [IO.File]::ReadAllBytes($tmp))
@@ -328,8 +355,8 @@ try {
                 foreach ($f in Get-ChildItem $destSol -Recurse -File -Include *.dtsx, *.conmgr, *.dtproj, *.params) {
                     $by = [IO.File]::ReadAllBytes($f.FullName); $bom = ($by.Length -ge 3 -and $by[0] -eq 0xEF -and $by[1] -eq 0xBB -and $by[2] -eq 0xBF)
                     $tx = [Text.Encoding]::UTF8.GetString($by); if ($bom) { $tx = $tx.TrimStart([char]0xFEFF) }
-                    $nuevo = $tx.Replace('LAPTOP-IO596P6A\SQLEXPRESS', $servidor)
-                    if ($nuevo -ne $tx) { [IO.File]::WriteAllText($f.FullName, $nuevo, (New-Object Text.UTF8Encoding($bom))) }
+                    $txtNuevo = $tx.Replace('LAPTOP-IO596P6A\SQLEXPRESS', $servidor)
+                    if ($txtNuevo -ne $tx) { [IO.File]::WriteAllText($f.FullName, $txtNuevo, (New-Object Text.UTF8Encoding($bom))) }
                 }
                 Ok "Solucion de Visual Studio: $destSol\AdventureWork.sln  (conectada a $servidor)"
             } catch { Aviso "No se pudo crear la solucion de Visual Studio: $($_.Exception.Message)" }

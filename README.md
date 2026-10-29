@@ -45,6 +45,15 @@ SQL Server Agent. Si falta algo, el script lo dice y deja las bases restauradas.
 > **Elegir la instancia tú misma:** `.\restaurar_laboratorio4.ps1 -Instancia SQLEXPRESS`
 > (o `DEV`, o `MSSQLSERVER` si es la instancia predeterminada). Con `-Simular` solo muestra lo que haría.
 
+## Empezar de cero (`-Nuevo`)
+Si los datos quedaron contaminados (por ejemplo, ejecutaste los paquetes maestros desde Visual Studio varias veces o cambiaste algo):
+
+`powershell -ExecutionPolicy Bypass -File .estaurar_laboratorio4.ps1 -Nuevo`
+
+Pide que escribas **SI** y entonces **borra** las 3 bases (`AdventureWorks2016CTP3`, `STAGE_AW`, `DWH_AW`), los paquetes de SSISDB y la solucion de
+Documentos, y lo rehace **todo** desde los respaldos (bases, paquetes, Job y solucion de Visual Studio). Con `-Forzar` no pregunta.
+Sin `-Nuevo` el script nunca borra nada.
+
 ## Notas
 - **No pisa nada:** si ya tienes una base con el mismo nombre, la deja como está y lo avisa. Para rehacerla, elimínala en SSMS
   (clic derecho → Eliminar) y ejecuta de nuevo.

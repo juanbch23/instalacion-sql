@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <DTS:ConnectionManager xmlns:DTS="www.microsoft.com/SqlServer/Dts"
-  DTS:ObjectName="AdoNet DWH_AW Juan"
-  DTS:DTSID="{0C4A1B94-548D-46C4-9BEC-C6FA0BEF3B95}"
+  DTS:ObjectName="AdoNet DWH_AW"
+  DTS:DTSID="{AF89A4C8-CBE6-4D82-A9E1-1571DB9666C8}"
   DTS:CreationName="ADO.NET:System.Data.SqlClient.SqlConnection, System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
   <DTS:ObjectData>
     <DTS:ConnectionManager

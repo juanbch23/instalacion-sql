@@ -3,8 +3,8 @@
   DTS:refId="Package"
   DTS:CreationDate="9/16/2026 1:19:00 PM"
   DTS:CreationName="Microsoft.Package"
-  DTS:CreatorComputerName="LAPTOP-IO596P6A"
-  DTS:CreatorName="LAPTOP-IO596P6A\Juan"
+  DTS:CreatorComputerName="EQUIPO"
+  DTS:CreatorName="EQUIPO\Usuario"
   DTS:DTSID="{B448AF7F-DDAB-4D98-AF7D-7557224F4D5C}"
   DTS:ExecutableType="Microsoft.Package"
   DTS:LastModifiedProductVersion="16.0.1000.6"
@@ -884,7 +884,7 @@
                     <connection
                       refId="Package\Contenedor de bucles Foreach\Tarea Flujo de datos\Destino de OLE DB.Connections[OleDbConnection]"
                       connectionManagerID="{E4504583-A16E-4BDE-BBFD-436191842E75}:external"
-                      connectionManagerRefId="Project.ConnectionManagers[OleDB DWH_AW Juan]"
+                      connectionManagerRefId="Project.ConnectionManagers[OleDB DWH_AW]"
                       description="The OLE DB runtime connection used to access the database."
                       name="OleDbConnection" />
                   </connections>

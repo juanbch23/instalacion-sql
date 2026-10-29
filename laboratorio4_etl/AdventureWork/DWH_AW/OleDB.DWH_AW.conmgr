@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <DTS:ConnectionManager xmlns:DTS="www.microsoft.com/SqlServer/Dts"
-  DTS:ObjectName="OleDB DWH_AW Juan"
+  DTS:ObjectName="OleDB DWH_AW"
   DTS:DTSID="{E4504583-A16E-4BDE-BBFD-436191842E75}"
   DTS:CreationName="OLEDB">
   <DTS:ObjectData>
